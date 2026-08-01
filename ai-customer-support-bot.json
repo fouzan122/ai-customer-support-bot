@@ -1,0 +1,165 @@
+{
+  "name": "AI Customer Support Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Hi there! 👋\nHow can I assist you today?",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [-304, -32],
+      "id": "304340d3-bb4a-42cf-bf5a-622f188cbc40",
+      "name": "When chat message received"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a friendly, professional customer support agent.\n\n1. Answer common FAQs directly (shipping times, returns policy, business hours).\n2. If a customer reports an issue (e.g. order not arrived), ask for their Order ID first.\n3. Once you have the Order ID and issue details, log it using your tools.\n4. Send a confirmation email summarizing the issue and next steps.\n5. If the issue sounds urgent, tell the customer you're escalating to a human and use the escalation tool.\n6. Be empathetic, concise, and always confirm next steps clearly.\n\nNever invent order information — always ask the customer for it."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [16, -160],
+      "id": "0957b89a-28f2-4241-9f59-2d6259fb07f7",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": { "options": {} },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [-64, 64],
+      "id": "4708f033-9c45-4ac6-b363-25bed6e8b0c6",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": { "id": "REPLACE_WITH_YOUR_GEMINI_CREDENTIAL_ID", "name": "Google Gemini(PaLM) Api account" }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [112, 80],
+      "id": "cce5a2ae-3b28-482b-a4bd-bab63a59645e",
+      "name": "Simple Memory"
+    },
+    {
+      "id": "f16d7106-7df9-4d29-a984-3dc3bd1768a7",
+      "name": "Send Support Email",
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [700, 700],
+      "parameters": {
+        "message": "={{ $fromAI('body', 'Full email body summarizing the issue and next steps') }}",
+        "operation": "send",
+        "options": {},
+        "resource": "message",
+        "sendTo": "={{ $fromAI('customer_email', 'The customer email address') }}",
+        "subject": "={{ $fromAI('subject', 'Email subject line, e.g. Support Ticket Confirmation') }}"
+      },
+      "credentials": {
+        "gmailOAuth2": { "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail account" }
+      }
+    },
+    {
+      "id": "da7b0612-6745-4c8e-a8a2-0367cfaa027c",
+      "name": "Log Customer Details",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [860, 700],
+      "parameters": {
+        "columns": {
+          "mappingMode": "defineBelow",
+          "schema": [
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Name", "id": "Name", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Email", "id": "Email", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Order ID", "id": "Order ID", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Issue", "id": "Issue", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Timestamp", "id": "Timestamp", "required": false, "type": "string" }
+          ],
+          "value": {
+            "Email": "={{ $fromAI('email', 'Customer email address') }}",
+            "Issue": "={{ $fromAI('issue', 'Short summary of the customer issue') }}",
+            "Name": "={{ $fromAI('name', 'Customer full name') }}",
+            "Order ID": "={{ $fromAI('order_id', 'The order ID related to the issue') }}",
+            "Timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "documentId": { "__rl": true, "mode": "id", "value": "REPLACE_WITH_YOUR_GOOGLE_SHEET_ID" },
+        "operation": "append",
+        "resource": "sheet",
+        "sheetName": { "__rl": true, "mode": "name", "value": "Customers" }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_WITH_YOUR_GOOGLE_SHEETS_CREDENTIAL_ID", "name": "Google Sheets account" }
+      }
+    },
+    {
+      "id": "79b69909-a57d-4dc5-b93f-b85b6cfae5af",
+      "name": "Create Support Ticket",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [1020, 700],
+      "parameters": {
+        "columns": {
+          "mappingMode": "defineBelow",
+          "schema": [
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Ticket Subject", "id": "Ticket Subject", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Customer Email", "id": "Customer Email", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Order ID", "id": "Order ID", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Description", "id": "Description", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Priority", "id": "Priority", "required": false, "type": "string" },
+            { "canBeUsedToMatch": true, "defaultMatch": false, "display": true, "displayName": "Timestamp", "id": "Timestamp", "required": false, "type": "string" }
+          ],
+          "value": {
+            "Customer Email": "={{ $fromAI('customer_email', 'Customer email') }}",
+            "Description": "={{ $fromAI('description', 'Full issue description') }}",
+            "Order ID": "={{ $fromAI('order_id', 'Order ID related to the issue') }}",
+            "Priority": "={{ $fromAI('priority', 'low, normal, high, or urgent') }}",
+            "Ticket Subject": "={{ $fromAI('subject', 'Short ticket subject') }}",
+            "Timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "documentId": { "__rl": true, "mode": "id", "value": "REPLACE_WITH_YOUR_GOOGLE_SHEET_ID" },
+        "operation": "append",
+        "resource": "sheet",
+        "sheetName": { "__rl": true, "mode": "name", "value": "Tickets" }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_WITH_YOUR_GOOGLE_SHEETS_CREDENTIAL_ID", "name": "Google Sheets account" }
+      }
+    },
+    {
+      "id": "309f05ea-e328-4189-8ae8-549d55650edf",
+      "name": "Escalate to Human",
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.2,
+      "position": [1180, 700],
+      "parameters": {
+        "message": "={{ 'Customer: ' + $fromAI('customer_email', 'Customer email') + '\\nOrder ID: ' + $fromAI('order_id', 'Order ID if known') + '\\n\\nDetails: ' + $fromAI('details', 'Full details of the issue needing escalation') }}",
+        "operation": "send",
+        "options": {},
+        "resource": "message",
+        "sendTo": "REPLACE_WITH_SUPPORT_TEAM_EMAIL",
+        "subject": "={{ '🚨 Escalation needed: ' + $fromAI('summary', 'Short summary of why this needs a human') }}"
+      },
+      "credentials": {
+        "gmailOAuth2": { "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail account" }
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "Google Gemini Chat Model": { "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "Simple Memory": { "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]] },
+    "Send Support Email": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] },
+    "Log Customer Details": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] },
+    "Create Support Ticket": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] },
+    "Escalate to Human": { "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]] }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ai-customer-support-bot"
+  }
+}
